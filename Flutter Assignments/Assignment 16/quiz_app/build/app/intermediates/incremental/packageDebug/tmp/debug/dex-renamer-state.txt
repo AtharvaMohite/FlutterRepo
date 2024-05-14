@@ -1,0 +1,4 @@
+#Thu Feb 01 22:59:19 IST 2024
+base.0=D\:\\Flutter_New\\flutter_apps\\Assignments\\Assignment 16\\quiz_app\\build\\app\\intermediates\\dex\\debug\\mergeDexDebug\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

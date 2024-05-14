@@ -1,0 +1,1 @@
+ D:\\Flutter_New\\flutter_apps\\flutter_assignment_4\\.dart_tool\\flutter_gen\\gen_l10n\\app_localizations_en.dart D:\\Flutter_New\\flutter_apps\\flutter_assignment_4\\.dart_tool\\flutter_gen\\gen_l10n\\app_localizations.dart:  D:\\Flutter_New\\flutter_apps\\flutter_assignment_4\\l10n.yaml D:\\Flutter_New\\flutter_apps\\flutter_assignment_4\\lib/src/localization\\app_en.arb
