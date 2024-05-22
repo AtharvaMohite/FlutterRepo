@@ -86,6 +86,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.3"
+  flutter_slidable:
+    dependency: "direct main"
+    description:
+      name: flutter_slidable
+      sha256: "673403d2eeef1f9e8483bd6d8d92aae73b1d8bd71f382bc3930f699c731bc27c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -164,7 +172,7 @@ packages:
     source: hosted
     version: "1.9.1"
   path:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path
       sha256: "8829d8a55c13fc0e37127c29fedf290c102f4e40ae94ada574091fe0ff96c917"
@@ -240,6 +248,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.99"
+  slideable:
+    dependency: "direct main"
+    description:
+      name: slideable
+      sha256: "80904a850128b6a9a4b019eee1a182c12b7a7f10734e4267af9e30c46093ad9b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.2"
   source_span:
     dependency: transitive
     description:
