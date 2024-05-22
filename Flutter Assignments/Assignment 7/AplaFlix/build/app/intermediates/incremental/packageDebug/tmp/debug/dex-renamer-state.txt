@@ -1,4 +1,0 @@
-#Sat Jan 20 16:07:44 IST 2024
-base.0=D\:\\Flutter_New\\flutter_apps\\netflix3\\build\\app\\intermediates\\dex\\debug\\mergeDexDebug\\classes.dex
-renamed.0=classes.dex
-path.0=classes.dex

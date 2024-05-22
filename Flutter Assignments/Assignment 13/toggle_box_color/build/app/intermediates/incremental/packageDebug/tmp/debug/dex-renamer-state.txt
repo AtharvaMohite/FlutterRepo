@@ -1,4 +1,0 @@
-#Tue Jan 30 22:40:47 IST 2024
-base.0=D\:\\Flutter_New\\flutter_apps\\Assignments\\Assignment 13\\toggle_box_color\\build\\app\\intermediates\\dex\\debug\\mergeDexDebug\\classes.dex
-renamed.0=classes.dex
-path.0=classes.dex
