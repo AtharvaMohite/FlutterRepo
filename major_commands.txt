@@ -1,0 +1,279 @@
+
+
+###########################################
+
+Move datafile from File system to ASM
+
+/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229
+
+1. To move datafile to disk
+
+alter database move datafile to '+ASMdiskgroup/instancename/datafile/filename' to 'NEW disk group';
+OR 
+ALTER DATABASE MOVE DATAFILE '/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229' TO '+DATAARCH';
+
+Rename file 
+alter database rename file '/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229' to '+DATAARCH';
+
+
+to take datafile offline
+alter database datafile '/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229' offline;
+
+alter database datafile '/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229' online;
+
+
+
+
+alter database create datafile '/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229' as '+ARCHSI' size 31G;
+
+alter database create datafile '/oracle19c/app/oracle/product/19.0.0/dbhome_1/dbs/UNNAMED00229' as New
+
+##################################
+
+srvctl add service -d MIBPRCDB -service MIIBPRDB_SRV  -pdb MIIBDRDB -preferred MIBPRCDB1,MIBPRCDB2,MIBPRCDB3,MIBPRCDB4 -available MIBPRCDB5,MIBPRCDB6 -failback yes
+
+srvctl modify service -d MIBPRCDB -s MIIBPRDB_SRV -modifyconfig  -preferred "MIBPRCDB1,MIBPRCDB2,MIBPRCDB3,MIBPRCDB4" -available "MIBPRCDB5,MIBPRCDB6"
+
+srvctl relocate service -d <db_unique_name> -s <service_name> -i <old_inst_name> -t <new_inst_name> -f
+
+srvctl status database -d <DB_Unique_name> -v
+
+srvctl stop instance -i <instance name> -d <DB_Unique_name>
+
+srvctl config listener -listener LISTENER
+srvctl modify LISTENER -p 1787
+srvctl modify scan_listener -p 1786
+
+
+#################################### 
+
+table_lock;-
+
+SELECT B.Owner, B.Object_Name, A.Oracle_Username, A.OS_User_Name  
+FROM GV$Locked_Object A, All_Objects B
+WHERE A.Object_ID = B.Object_ID
+
+
+Get the object ID of the locked table:
+
+2)SELECT object_id FROM dba_objects WHERE object_name='CACHE_DETAILS';
+
+Get the SID values for this ID:
+
+3)SELECT sid FROM gv$lock WHERE id1=OBJECT ID FROM STEP1
+
+
+
+4)set feedback off;
+set heading off
+select 'alter system kill session '''||sid||','||serial#||',@'||inst_id||''' immediate;' from gv$session where status='INACTIVE' and sid=2428
+
+
+##############################
+
+--1) to create task
+
+BEGIN
+
+  DBMS_PARALLEL_EXECUTE.create_task (task_name => 'test_task');
+
+END;
+
+/
+
+--2) to define chunk properties
+
+BEGIN
+
+  DBMS_PARALLEL_EXECUTE.create_chunks_by_rowid(task_name   => 'test_task',
+
+                                               table_owner => 'IIBARCH',
+
+                                               table_name  => 'BACK_PROCESS_CLOBDET_2021_2',
+
+                                               by_row      => FALSE,
+
+                                               chunk_size  => 10000);
+
+END;
+
+/
+
+--3) to check status
+
+COLUMN task_name FORMAT A10
+
+SELECT task_name,
+
+       status
+
+FROM   user_parallel_execute_tasks;
+
+SELECT chunk_id, status, start_rowid, end_rowid
+
+FROM   user_parallel_execute_chunks
+
+WHERE  task_name = 'test_task'
+
+ORDER BY chunk_id;
+
+--4) to execute the chunks
+
+DECLARE
+
+  l_sql_stmt VARCHAR2(32767);
+
+BEGIN
+
+  l_sql_stmt := 'insert  into IIBARCH.BACK_PROCESS_CLOBDET_2021_2C select * from IIBARCH.BACK_PROCESS_CLOBDET_2021_2
+
+                 WHERE rowid BETWEEN :start_id AND :end_id';
+
+  DBMS_PARALLEL_EXECUTE.run_task(task_name      => 'test_task',
+
+                                 sql_stmt       => l_sql_stmt,
+
+                                 language_flag  => DBMS_SQL.NATIVE,
+
+                                 parallel_level => 500);
+
+END;
+
+/
+
+#################################
+
+
+===================PR==========================
+
+pwcopy /u01/app/oracle/product/19.0.0.0/dbhome_1/dbs/orapwsbisipr1 +EISDATA/SBISIPR/PASSWORD/orapwsbisipr
+
+
+
+srvctl modify database -d SBISIPR -pwfile '+EISDATA/SBISIPR/PASSWORD/orapwsbisipr'
+
+===================DR==========================
+
+ pwcopy /u01/app/oracle/product/19.0.0.0/dbhome_1/dbs/orapwsbisidr1  +EISDATA/SBISIDR/PASSWORD/orapwsbisidr
+ 
+ srvctl modify database -d SBISIPR -pwfile '+EISDATA/SBISIDR/PASSWORD/orapwsbisidr'
+ 
+ 
+ ALTER SYSTEM FLUSH PASSWORDFILE_METADATA_CACHE;
+ 
+ 
+ #############################
+ 
+ RMAN> backup incremental level 1 cumulative device type sbt filesperset =1 tag '%TAG' section size 64 G database plus archivelog not backed up filesperset = 32;
+2>
+
+
+
+
+ run
+{
+allocate channel c1 DEVICE TYPE SBT_TAPE PARMS 'SBT_LIBRARY=/u01/app/oracle/product/12.1.0/dbhome_1/lib/libra.so,ENV=(RA_WALLET=location=file:/u01/app/oracle/product/12.1.0/dbhome_1/dbs/zdlra CREDENTIAL_ALIAS=eisdrzdingest-scan1:1786/eisdrdkp:dedicated)' FORMAT '%U_%D';
+set dbid=1944770225;
+2> 3> restore controlfile;
+release channel c1;
+4> 5> 6> 7>
+}
+exit;
+
+
+###################
+
+[oracle@eissiprdbadm01 IIB_EXPDP]$ cat ALL_tables_SEP25_EXP.par
+
+directory=IIB_EXPDP
+logfile=ALL_tables_SEP25_EXP.log
+dumpfile=ALL_tables_SEP25_EXP_%L.dmp
+tables=
+EISAPP.API_DETAILS:SEP_25,
+EISAPP.API_DETAILS_CLOB:SEP_25,
+EISAPP.BACKEND_DETAILS_CLOB:SEP_25,
+EISAPP.BACKEND_LOG:SEP_25,
+EISAPP.API_LOG:SEP_25,
+EISAPP.ORCH_API_DETAILS_CLOB:SEP_25,
+EISAPP.ORCH_API_LOG:SEP_25,
+EISAPP.ORCH_API_DETAILS:SEP_25,
+EISAPP.BACKEND_DETAILS:SEP_25
+content=data_only
+compression=all
+parallel=16
+cluster=N
+exclude=STATISTICS
+logtime=all
+metrics=y
+COMPRESSION_ALGORITHM=MEDIUM
+QUERY=EISAPP.API_DETAILS:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.API_DETAILS_CLOB:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.BACKEND_DETAILS_CLOB:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.BACKEND_LOG:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.API_LOG:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.ORCH_API_DETAILS_CLOB:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.ORCH_API_LOG:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.ORCH_API_DETAILS:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+,EISAPP.BACKEND_DETAILS:"where CREATION_DATE_TIME between to_date('22-SEP-2025 18:00:00','DD-MON-YYYY HH24:MI:SS') and to_date('22-SEP-2025 19:59:59','DD-MON-YYYY HH24:MI:SS')"
+
+
+[oracle@eissiprdbadm01 IIB_EXPDP]$ cat ALL_tables_SEP25_IMP.par
+
+
+directory=IIB_IMPDP
+logfile=ALL_tables_SEP25_IMP.log
+dumpfile=ALL_tables_SEP25_EXP_%L.dmp
+remap_schema=EISAPP:IIBARCH
+table_exists_action=append
+remap_table=API_DETAILS:API_DETAILS_MISS
+,API_DETAILS_CLOB:API_DETAILS_CLOB_MISS
+,BACKEND_DETAILS_CLOB:BACKEND_DETAILS_CLOB_MISS
+,BACKEND_LOG:BACKEND_LOG_MISS
+,API_LOG:API_LOG_MISS
+,ORCH_API_DETAILS_CLOB:ORCH_API_DETAILS_CLOB_MISS
+,ORCH_API_LOG:ORCH_API_LOG_MISS
+,ORCH_API_DETAILS:ORCH_API_DETAILS_MISS
+,BACKEND_DETAILS:BACKEND_DETAILS_MISS
+parallel=08
+exclude=STATISTICS
+logtime=all
+metrics=yes
+
+
+
+
+############################
+
+set echo on;
+set define off;
+set timing on;
+spool /tmp/move_datafile_orch_tbs_2gg14jun25.log
+
+select SYSTIMESTAMP from dual;
+
+
+prompt =======BEFORE==========
+@/home/oracle/scripts/disk_space.sql
+
+
+alter database move datafile '+EISDATA/ARCHNPR/16FEF50DEC9FCBA5E0632A0ABC0A77AF/DATAFILE/orch_tbs_2gg.9177.1193443323' to '+ARCHDATA';
+
+select SYSTIMESTAMP from dual;
+
+
+prompt =======AFTER_BATCH==========
+@/home/oracle/scripts/disk_space.sql
+spool off;
+
+
+#############################
+
+
+set time on timing on;
+spool /home/oracle/scripts/BACKEND_DETAILS_2024_1C_jun.txt
+alter table IIBARCH.BACKEND_DETAILS_2024_1C move partition JUN_24 ONLINE compress for query high tablespace BACK_TBS parallel 16;
+spool off;
+
+
+#####################
+
