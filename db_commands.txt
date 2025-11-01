@@ -1,0 +1,608 @@
+Deleting archive logs:  
+
+@Sync_arch 
+
+Rman target/ (on eisdrdb05)  
+
+delete force archivelog until sequence ****** (@sync_arch: last sequence applied – 200) 
+
+Delete force archivelog until time ‘SYSDATE-2’   (DR IIB node to release space from arcESB3)  
+
+DR PR not in sync 
+
+Ps –ef | grep mrp 
+
+Check alert logs 
+
+Monitor sync- 
+
+Check last applied time 
+
+From DR  
+
+SQL>alter database Recover managed standby database cancel; 
+
+Media recovery complete. 
+
+After this 
+
+SQL>Recover managed standby database disconnect from session 
+
+Media recovery complete. 
+
+Monitor alert logs 
+
+Check sync status  
+
+Alter system switch logfile …..(node on which difference is present) 
+
+ 
+
+To resync 
+
+From PR node 
+
+nohup rman target / catalog/@eisdrzdingest-scan1:1786/eisdrdkp:dedicated @resync.sql log=resync.log & 
+
+Resync.sql 
+
+Show all; 
+
+Or resync all; 
+
+RMAN> register database; 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+To check stale status of table: 
+
+select TABLE_NAME,OWNER,STALE_STATS,LAST_ANALYZED,PARTITION_NAME from dba_tab_statistics where OWNER ='EISAPP' AND STALE_STATS ='YES'; 
+
+ 
+
+Objects level changes 
+
+select OWNER,OBJECT_NAME,OBJECT_TYPE,CREATED,LAST_DDL_TIME,STATUS,TIMESTAMP from dba_objects where LAST_DDL_TIME>sysdate-1 and OWNER!='SYS' 
+
+ 
+
+select OS_USERNAME,USERNAME,TIMESTAMP,OWNER,OBJ_NAME,ACTION_NAME from DBA_AUDIT_OBJECT where USERNAME='EISAPP' and TIMESTAMP>=sysdate-12 and ACTION_NAME='DELETE' order by TIMESTAMP; 
+
+select OWNER,OBJECT_NAME,OBJECT_TYPE,CREATED,LAST_DDL_TIME,STATUS,TIMESTAMP from dba_objects where CREATED>sysdate -12 and OWNER='EISAPP' and OBJECT_TYPE!='TABLE SUBPARTITION' order by CREATED desc; 
+
+ 
+
+To see existing datafiles size : 
+
+select file_id, file_name, bytes/1024/1024 size_mb FROM dba_data_files WHERE tablespace_name = 'IIB_TBS'; 
+
+Conflict checks of patches 
+
+$ORACLE_HOME/OPatch/opatch prereq CheckConflictAgainstOHWithDetail -phBaseDir /QFSDP_PACTHES/issue_patch/29331209 
+
+ 
+
+Generate Golbal AWR and  ADDM report: 
+
+@$ORACLE_HOME/rdbms/admin/awrgrpt.sql 
+
+@$ORACLE_HOME/rdbms/admin/addmgrpt.sql 
+
+@$ORACLE_HOME/rdbms/admin/awrrpt.sql 
+
+@$ORACLE_HOME/rdbms/admin/ashrpt.sql 
+
+ 
+
+EXAwatcher logs 
+
+cd /opt/oracle.ExaWatcher/ 
+
+./GetExaWatcherResults.sh --from 10/21/2021_13:00:00 --to 10/21/2021_15:30:25 --resultdir /tmp/exaresult_node7_211021 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Checking Local listener logs: 
+
+su - grid 
+
+. oraenv  
+
++ASM7 
+
+/u01/app/12.2.0.1/grid 
+
+ps -ef | grep tns 
+
+lsnrctl status LISTENER 
+
+cd /u01/app/grid/diag/tnslsnr/eisdcdb07/listener/trace 
+
+tail -100f listener.log 
+
+Or 
+
+Locate listener.log 
+
+Tail –100f path 
+
+ 
+
+To extract listener.log 
+
+cd /u01/app/grid/diag/tnslsnr/eisdcdb07/listener/trace 
+
+Cp listener.log /tmp 
+
+ 
+
+OPATCH lsinventory 
+
+[oracle@eisdcdb03 OPatch]$ export PATH=$ORACLE_HOME/OPatch:$PATH 
+
+[oracle@eisdcdb03 OPatch]$ opatch lsinventory 
+
+$ORACLE_HOME/OPatch/opatch lspatches 
+
+$ORACLE_HOME/OPatch/opatch lsinventory 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Partition drop 
+
+alter table EISAPP.BACKEND_LOG drop partition MAR_22; 
+
+If not dropped 
+
+alter table EISAPP.BACKEND_LOG set interval (); 
+
+alter table EISAPP.BACKEND_LOG drop partition MAR_22; 
+
+alter table <TABLE_NAME> set INTERVAL(NUMTOYMINTERVAL(1,'MONTH')); 
+
+ 
+
+Stop mrp 
+
+Alter database recover managed standby database cancel; 
+
+Start mrp 
+
+Alter database recover managed standby database disconnect from session; 
+
+ 
+
+Zipping listener.log to clear /u01: 
+
+mv listener.log listener_02102021 
+
+ls –lrt 
+
+zip listener_02102021.zip listener_02102021 
+
+ls –lrt 
+
+rm -rf listener_02102021; 
+
+OR 
+
+Zip –rm listener_02102021.zip listener.log 
+
+ 
+
+Connecting to ASM: 
+
+su – grid 
+
+ps –ef | grep tns 
+
+ps –ef | grep pmon 
+
+. oraenv  
+
++ASM1 
+
+/u01/app/12.2.0.1/grid 
+
+sqlplus / as sysasm 
+
+ 
+
+Checking imports: 
+
+On node5 -  
+
+su – oracle 
+
+cd /backup_exa/EXPDP/IIB_EXPDP 
+
+ls –lrt 
+
+There will be a .par file and .log file for the import. 
+
+Use the cat command on .log file and get the master table name. 
+
+Impdp attach = <master table name> 
+
+Username – sys as sysdba 
+
+Password – sys 
+
+ 
+
+To kill sessions- 
+
+1. alter system kill session ‘SID, Sr ID’ immediate. 
+
+or 
+
+select 'alter system kill session '''||sid||','||serial#||',@'||inst_id||''' immediate;'from gv$session where osuser='vtcs***'; 
+
+ 
+
+To unlock user- 
+
+1. alter user username account unlock; 
+
+ 
+
+Adding Datafiles: 
+
+alter tablespace <table name> add datafile '+<diskgroup name>' size 31G; 
+
+ 
+
+Finding Oracle_Home path: 
+
+env|grep -i ORACLE_HOME 
+
+ 
+
+.arc files can be moved from /u01/app/oracle/product/12.1.0.2/dbhome_1/dbs to /backup_exa for releasing space in /u01 mount point 
+
+  CREATE USER: 
+
+ CREATE USER "EIS_WORKFLOW" IDENTIFIED BY password DEFAULT TABLESPACE "REPORT_TBS1" TEMPORARY TABLESPACE "TEMP"; 
+
+         
+
+grant connect to EIS_WORKFLOW; 
+
+grant all privileges to EIS_WORKFLOW; 
+
+ 
+ 
+
+GRANT RESOURCE TO EIS_WORKFLOW; 
+
+ 
+
+Finding database name: 
+show parameter name 
+
+select name from v$database; 
+
+Find the instance name 
+
+Select name from v$instance 
+
+To find hostname, scan ips, port, service name for SQLDeveloper: 
+
+cd $ORACLE_HOME/network/admin 
+
+cat tnsnames.ora   
+
+ 
+
+To extend users expiry: 
+
+Desc dba_users 
+
+Select username , expiry_date, profile from dba_users where username = ; 
+
+Desc user$ 
+
+Select name, password from user$ where name =  
+
+select * from dba_profiles where profile = 'DEFAULT';  (to get password_reuse_time and password_reuse_max limits) 
+
+alter user DBBACKUP identified by values '9E0D85E0A64210DF'; 
+
+ORA-28007: the password cannot be reused 
+
+alter profile default limit PASSWORD_REUSE_TIME unlimited; 
+
+alter profile default limit PASSWORD_REUSE_MAX unlimited; 
+
+alter user DBBACKUP identified by values '9E0D85E0A64210DF'; 
+
+alter profile default limit PASSWORD_REUSE_TIME 365; 
+
+alter profile default limit PASSWORD_REUSE_MAX 20; 
+
+Select username , expiry_date, profile from dba_users where username = ; 
+
+ 
+
+networks 
+
+netstat -ant | grep 10.191.171. | nl 
+
+ 
+
+To change password (without encryption) of a user:  
+
+Passwd username 
+
+ 
+
+ 
+
+To chcek Up time of instance 
+
+--> uptime 
+
+-->netstat –rn 
+
+ 
+
+To check redo logs 
+
+Desc v$log  
+
+ 
+
+Deleting trace files: 
+
+ 
+
+cd /u01/app/oracle/diag/rdbms/sbisictrl1/sbisi1/trace/ 
+
+2. cd /u01/app/grid/diag/crs/eisdcdb01/crs/trace 
+
+3. du –sh * 
+
+4. cd (max size directory) 
+
+ 
+
+a.  -na find me '*.trc' -mtime +20 -exec ls -lrth {} \; 
+
+b. find -name '*.trm' -mtime +5 -exec ls -lrt {} \; 
+
+c· find -name '*.trc' -mtime +3 -exec rm {} \; 
+
+d· find -name '*.xml' -mtime +5 -exec rm {} \; 
+
+find -name '*.aud' -mtime +5 -exec rm {} \; 
+
+ 
+
+ 
+
+find -name '*.trc' -mtime +5 -exec rm {} \; 
+
+find -name '*.xml' -mtime +5 -exec rm {} \; 
+
+ 
+
+ 
+
+Node 1 root 
+
+Ps –ef| grep pmon  
+
+Ps –ef| grep tns 
+
+. Oraenv 
+
+=ASM1 
+
+Path grid 
+
+ 
+
+Parameter change activity: 
+
+After connecting to database: 
+
+create pfile='/home/oracle/initiibprdb_201221.ora' from spfile; -------------------- to take backup of spfile 
+
+alter system set log_buffer=1G scope=spfile sid='*'; 
+
+alter system set "_log_parallelism_max"=6 scope=spfile sid='*'; 
+
+alter system set "_db_mttr_advice"=READY scope=spfile sid='*'; 
+
+ 
+
+From oracle user: 
+
+srvctl config db--------------------------------- To get all DB names 
+
+srvctl status database -d iibprdb------------------ 
+
+ 
+
+Instance restart: 
+
+srvctl stop instance -i iibprdb1 -d iibprdb 
+
+srvctl start instance -i iibprdb1 -d iibprdb 
+
+ 
+
+To check table size: 
+
+select segment_name,segment_type, sum(bytes/1024/1024/1024) GB from dba_segments where segment_name='Your_Table_Name' group by segment_name,segment_type; 
+
+ 
+
+To Restore Missing Logs: 
+
+Root@eisdcdb01: ps –ef |grep pmon 
+
+ps –ef |grep tns 
+
+. Oranev 
+
+                          +ASM1 
+
+grid path 
+
+asmcmd 
+
+ 
+
+ASMcmd>ls 
+
+cd ARCHSI/ 
+
+ls 
+
+cd SBISICTRL1/ 
+
+ls 
+
+cd ARCHIVELOG/ 
+
+ls 
+
+cd 2021_12_26/              (Search for log missing name in list date wise) 
+
+Ls  -lrth  *####* 
+
+ASMCMD> cp thread_1_seq_111882.2426.1092261927  /tmp                              (thread _…... filename..) 
+
+copying +ARCHSI/SBISICTRL1/ARCHIVELOG/2021_12_25/thread_1_seq_111882.2426.1092261927 -> /tmp/thread_1_seq_111882.2426.1092261927 
+
+[root@eisdcdb01 ~]# cd /tmp 
+
+[root@eisdcdb01 tmp]# ls –lrth 
+
+mv thread new file.arc 
+
+[root@eisdcdb01 tmp]# ls -lrth 
+
+[oracle@eisdcdb01 tmp]$  scp 1_111882_999507862.arc 10.191.170.69:/CDC_App/archive/min_standby 
+
+[oracle@eisdcdb01 tmp]$ cd .. 
+
+[oracle@eisdcdb01 /]$ ssh 10.191.170.69 
+
+[oracle@eisdcoem1 ~]$ cd /CDC_App/archive/min_standby 
+
+[oracle@eisdcoem1 min_standby]$ ls -lrth 
+
+ 
+
+SCP  
+
+ZDLRA to OEM 
+
+scp filename root@eisdcoem1:/tmp/ 
+
+PR to UAT 
+
+scp filename root@eisuatdbadm01.sbi.co.in:/tmp 
+
+ 
+
+Uat to PR     (reverse scp) 
+
+Scp root@eisuatdbadm01.sbi.co.in:/filename /tmp 
+
+DR to PR using backhaul IP 
+
+scp -p /backup_exa/EXPDP/IIB_EXPDP/BACKEND_PROCESSING_CLOBDETAILS_NOV_EXP_01.dmp tcs1227004@10.191.172.108:/backup_exa/RMANREPORT_FULL_test 
+
+scp from restoration to PR  
+
+ 
+
+ 
+
+ 
+
+set lines 300 pages 900 
+alter session set nls_date_format='DD-MON-YYYY HH24:Mi:ss'; 
+select distinct b.sequence#,a.thread#,a.first_time,b.status from gv$archived_log a,gv$managed_standby b where b.PROCESS='MRP0' and a.sequence#=b.sequence# and a.applied='YES'; 
+
+ 
+
+Commands for listener: 
+
+[root@eisdrdb07 ~]# . oraenv 
+
+ORACLE_SID = [root] ? +ASM7 
+
+The Oracle base has been set to /grid19c/app/grid 
+
+[root@eisdrdb07 ~]# 
+
+[root@eisdrdb07 ~]# srvctl status listener 
+
+Listener LISTENER is enabled 
+
+Listener LISTENER is running on node(s): eisdrdb06,eisdrdb05,eisdrdb08,eisdrdb07,eisdrdb02,eisdrdb01,eisdrdb04,eisdrdb03 
+
+[root@eisdrdb07 ~]# srvctl config listener 
+
+Name: LISTENER 
+
+Type: Database Listener 
+
+Network: 1, Owner: grid 
+
+Home: <CRS home> 
+
+End points: TCP:1787 
+
+Listener is enabled. 
+
+Listener is individually enabled on nodes: 
+
+Listener is individually disabled on nodes: 
+
+[root@eisdrdb07 ~]# srvctl start listener -listener LISTENER 
+
+ 
+
+Command for clearing /var/log/audit: 
+
+tar -cjvf audit.log_17012023.tar.bz2 /var/log/audit/audit.log.{121..1555} --remove-files 
+
+ 
+
+ 
+ 
+
+ 
