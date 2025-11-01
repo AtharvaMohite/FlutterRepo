@@ -1,0 +1,449 @@
+[oracle@eissiprdbadm01 scripts]$ cat planc.sql
+
+set lines 155
+col execs for 999,999,999
+col avg_etime for 999,999.999
+col avg_lio for 999,999,999.9
+col begin_interval_time for a30
+col node for 99999
+break on plan_hash_value on startup_time skip 1
+select ss.snap_id, ss.instance_number node, begin_interval_time, sql_id, plan_hash_value,
+nvl(executions_delta,0) execs,
+(elapsed_time_delta/decode(nvl(executions_delta,0),0,1,executions_delta))/1000000 avg_etime_sec,
+(buffer_gets_delta/decode(nvl(buffer_gets_delta,0),0,1,executions_delta)) avg_lio,
+(buffer_gets_delta/decode(nvl(buffer_gets_delta,0),0,1,executions_delta)) rows_processed
+from DBA_HIST_SQLSTAT S, DBA_HIST_SNAPSHOT SS
+where sql_id = nvl('&sql_id','&a')
+and ss.snap_id = S.snap_id
+and ss.instance_number = S.instance_number
+and executions_delta > 0
+order by 1, 2, 3
+/
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat xplan.sql
+select * from table(dbms_xplan.display_cursor('&sql_id'));
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat act_sess.sql
+
+set pages 3000
+set lines 300
+set time on timing on
+col L_C_E for 9999
+col sql_text for a57
+col machine for a12
+col event for a15
+col osuser for a15
+col spid for a10
+col sid for 99999
+col serial# for 99999
+col username for a10
+select distinct  last_call_et L_C_E,osuser,s.username,sid,s.serial#,s.sql_id,s.status,p.spid,event,machine,sql_text
+from gv$session s, gv$sql q, gv$process p
+Where sql_hash_value=hash_value(+)
+and status='ACTIVE'
+and s.paddr=p.addr
+and s.username is not null
+and type <> 'BACKGROUND'
+order by last_call_et desc;
+
+
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat wait.sql
+col event for a40
+col wait_class for a30
+col SID_SERIAL for a20
+Select sid||','|| serial# "SID_SERIAL",blocking_session,event, wait_class,seconds_in_wait,sql_id
+From v$session
+where blocking_session is not NULL
+order by blocking_session;
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat rman_job.sql
+set linesize 200 pagesize 2000
+col Hours format 9999.99
+col STATUS format a30
+col RMAN_Bkup_start_time for a20
+col RMAN_Bkup_end_time for a20
+select SESSION_KEY, INPUT_TYPE, STATUS,
+to_char(START_TIME,'mm-dd-yyyy hh24:mi:ss') as RMAN_Bkup_start_time,
+to_char(END_TIME,'mm-dd-yyyy hh24:mi:ss') as RMAN_Bkup_end_time,
+elapsed_seconds/3600 Hours,round(OUTPUT_BYTES/1024/1024/1024,1) as "Size(GB)" from V$RMAN_BACKUP_JOB_DETAILS
+order by session_key;
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat datapump.sql
+set linesize 200
+set pagesize 200
+col owner_name format a12
+col job_name format a20
+col operation format a12
+col job_mode format a20
+SELECT
+owner_name,
+job_name,
+operation,
+job_mode,
+state
+FROM
+dba_datapump_jobs
+where
+state='EXECUTING';
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat db_stats.sql
+
+set lines 300 pages 900
+col name for a15
+select inst_id,count(1) COUNT from gv$session where status='ACTIVE' group by inst_id order by inst_id ;
+select NAME,SPACE_LIMIT/1024/1024/1024/1024 "ALLOCTED_TB",SPACE_USED/1024/1024/1024/1024 "SPACE_USED_TB",((SPACE_LIMIT/1024/1024/1024/1024-SPACE_USED/1024/1024/1024/1024)/(SPACE_LIMIT/1024/1024/1024/1024)*100) "FRA_FREE%" from V$RECOVERY_FILE_DEST;
+select  sum(bytes/1024/1024/1024/1024) "DB_SIZE(TB)" from dba_segments;
+SELECT ARCH.THREAD# "Thread", ARCH.SEQUENCE# "Last Sequence Received", APPL.SEQUENCE# "Last Sequence Applied", (ARCH.SEQUENCE# - APPL.SEQUENCE#) "Difference"
+FROM
+(SELECT THREAD# ,SEQUENCE# FROM V$ARCHIVED_LOG WHERE (THREAD#,FIRST_TIME ) IN (SELECT THREAD#,MAX(FIRST_TIME) FROM V$ARCHIVED_LOG GROUP BY THREAD#)) ARCH,
+(SELECT THREAD# ,SEQUENCE# FROM V$LOG_HISTORY WHERE (THREAD#,FIRST_TIME ) IN (SELECT THREAD#,MAX(FIRST_TIME) FROM V$LOG_HISTORY GROUP BY THREAD#)) APPL
+WHERE
+ARCH.THREAD# = APPL.THREAD# ORDER BY ARCH.THREAD#;
+col 00 for a4
+col 01 for a4
+col 02 for a4
+col 03 for a4
+col 04 for a4
+col 05 for a4
+col 06 for a4
+col 07 for a4
+col 08 for a4
+col 09 for a4
+col 10 for a4
+col 11 for a4
+col 12 for a4
+col 13 for a4
+col 14 for a4
+col 15 for a4
+col 16 for a4
+col 17 for a4
+col 18 for a4
+col 19 for a4
+col 20 for a4
+col 21 for a4
+col 22 for a4
+col 23 for a4
+
+
+SELECT to_date(first_time) DAY,
+to_char(sum(decode(to_char(first_time,'HH24'),'00',1,0)),'999') "00",
+to_char(sum(decode(to_char(first_time,'HH24'),'01',1,0)),'999') "01",
+to_char(sum(decode(to_char(first_time,'HH24'),'02',1,0)),'999') "02",
+to_char(sum(decode(to_char(first_time,'HH24'),'03',1,0)),'999') "03",
+to_char(sum(decode(to_char(first_time,'HH24'),'04',1,0)),'999') "04",
+to_char(sum(decode(to_char(first_time,'HH24'),'05',1,0)),'999') "05",
+to_char(sum(decode(to_char(first_time,'HH24'),'06',1,0)),'999') "06",
+to_char(sum(decode(to_char(first_time,'HH24'),'07',1,0)),'999') "07",
+to_char(sum(decode(to_char(first_time,'HH24'),'08',1,0)),'999') "08",
+to_char(sum(decode(to_char(first_time,'HH24'),'09',1,0)),'999') "09",
+to_char(sum(decode(to_char(first_time,'HH24'),'10',1,0)),'999') "10",
+to_char(sum(decode(to_char(first_time,'HH24'),'11',1,0)),'999') "11",
+to_char(sum(decode(to_char(first_time,'HH24'),'12',1,0)),'999') "12",
+to_char(sum(decode(to_char(first_time,'HH24'),'13',1,0)),'999') "13",
+to_char(sum(decode(to_char(first_time,'HH24'),'14',1,0)),'999') "14",
+to_char(sum(decode(to_char(first_time,'HH24'),'15',1,0)),'999') "15",
+to_char(sum(decode(to_char(first_time,'HH24'),'16',1,0)),'999') "16",
+to_char(sum(decode(to_char(first_time,'HH24'),'17',1,0)),'999') "17",
+to_char(sum(decode(to_char(first_time,'HH24'),'18',1,0)),'999') "18",
+to_char(sum(decode(to_char(first_time,'HH24'),'19',1,0)),'999') "19",
+to_char(sum(decode(to_char(first_time,'HH24'),'20',1,0)),'999') "20",
+to_char(sum(decode(to_char(first_time,'HH24'),'21',1,0)),'999') "21",
+to_char(sum(decode(to_char(first_time,'HH24'),'22',1,0)),'999') "22",
+to_char(sum(decode(to_char(first_time,'HH24'),'23',1,0)),'999') "23"
+from
+v$log_history
+where to_date(first_time) > sysdate -8
+GROUP by
+to_char(first_time,'YYYY-MON-DD'), to_date(first_time)
+order by to_date(first_time)
+/
+
+set lines 200 pages 200;
+alter SESSION set NLS_DATE_FORMAT = 'DD-MM-YYYY HH24:MI:SS';
+select trunc(COMPLETION_TIME,'HH') Hour,round(sum(BLOCKS*BLOCK_SIZE)/1024/1024/1024) GB, count(*) Archives from v$archived_log where dest_id='1' group by trunc(COMPLETION_TIME,'HH') order by trunc(COMPLETION_TIME,'HH') desc FETCH FIRST 5 ROWS ONLY;
+
+
+alter session set nls_date_format = 'DD-MON-YYYY HH24:MI:SS';
+select instance_name, startup_time from gv$instance order by instance_name;
+
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat sync_arch.sql
+set pages 100
+
+SELECT ARCH.THREAD# "Thread", ARCH.SEQUENCE# "Last Sequence Received", APPL.SEQUENCE# "Last Sequence Applied", (ARCH.SEQUENCE# - APPL.SEQUENCE#) "Difference"
+FROM
+(SELECT THREAD# ,SEQUENCE# FROM V$ARCHIVED_LOG WHERE (THREAD#,FIRST_TIME ) IN (SELECT THREAD#,MAX(FIRST_TIME) FROM V$ARCHIVED_LOG GROUP BY THREAD#)) ARCH,
+(SELECT THREAD# ,SEQUENCE# FROM V$LOG_HISTORY WHERE (THREAD#,FIRST_TIME ) IN (SELECT THREAD#,MAX(FIRST_TIME) FROM V$LOG_HISTORY GROUP BY THREAD#)) APPL
+WHERE
+ARCH.THREAD# = APPL.THREAD# ORDER BY ARCH.THREAD#;
+
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$
+[oracle@eissiprdbadm01 scripts]$ cat tbs.sql
+
+
+set lines 500
+set pages 100
+col tspace form a25 Heading "Tablespace"
+col tot_ts_size form 99999999 Heading "Size (Mb)"
+col free_ts_size form 99999999 Heading "Free (Mb)"
+col used_ts_size form 99999999 Heading "Used (Mb)"
+col used_pct form 99999 Heading "% Used"
+col free_pct form 99999 Heading "% Free"
+col warning form a10 Heading "Message"
+break on report
+compute sum label total of tot_ts_size on report
+compute sum label total of used_ts_size on report
+compute sum label total of free_ts_size on report
+         (select  df.tablespace_name tspace
+   ,       round(sum(fs.bytes_free + fs.bytes_used) / 1024 / 1024, 2) tot_ts_size
+   ,       round(sum(fs.Bytes_used) / 1024 / 1024, 2)  used_ts_size
+   ,       round(sum(fs.bytes_free) / 1024 / 1024, 2)  free_ts_size
+   ,       round(sum(fs.Bytes_used ) * 100 / sum((fs.bytes_free + fs.bytes_used))) used_pct
+   ,       round(sum(fs.Bytes_free ) * 100 / sum((fs.bytes_free + fs.bytes_used))) free_pct
+   ,      decode(sign(sum(round(((fs.bytes_free + fs.bytes_used)-fs.bytes_free)*100/(fs.bytes_free + fs.bytes_used))) - 80), 1, '
+   !ALERT', '') warning
+   from   SYS.V_$TEMP_SPACE_HEADER fs
+   ,      dba_temp_files df
+   where fs.tablespace_name(+) = df.tablespace_name
+     and fs.file_id(+) = df.file_id
+     group by df.tablespace_name
+     union
+     SELECT df.tablespace_name tspace
+     ,      df.bytes/(1024*1024) tot_ts_size
+     ,      round((df.bytes-sum(fs.bytes))/(1024*1024)) used_ts_size
+     ,      sum(fs.bytes)/(1024*1024) free_ts_size
+     ,      round((df.bytes-sum(fs.bytes))*100/df.bytes) used_pct
+     ,      round(sum(fs.bytes)*100/df.bytes) free_pct
+     ,      decode(sign(round((df.bytes-sum(fs.bytes))*100/df.bytes) - 80), 1, '!ALERT', '') warning
+     FROM dba_free_space fs
+     , (select tablespace_name, sum(bytes) bytes
+        from dba_data_files
+           group by tablespace_name
+              ) df
+              WHERE fs.tablespace_name(+) = df.tablespace_name
+              GROUP BY df.tablespace_name, df.bytes)
+              union
+              (select tablespace_name tspace,
+              1,1,0 free_ts_size,100 used_pct,0 free_pct,'!' warning from dba_data_files
+              group by tablespace_name
+              minus
+              select tablespace_name tspace,1,1,0 free_ts_size,100 used_pct,0 free_pct,'!' warning
+              from dba_free_space
+              group by tablespace_name)
+              order by 4
+              ;
+
+[oracle@eissiprdbadm01 scripts]$ cat check_tbs.sql
+
+
+set lines 300 pages 900
+select
+                a.tablespace_name,
+                round(SUM(a.bytes)/(1024*1024*1024)) CURRENT_GB,
+                round(SUM(decode(b.maxextend, null, A.BYTES/(1024*1024*1024),
+                b.maxextend*8192/(1024*1024*1024)))) MAX_GB,
+                (SUM(a.bytes)/(1024*1024*1024) - round(c.Free/1024/1024/1024)) USED_GB,
+                round((SUM(decode(b.maxextend, null, A.BYTES/(1024*1024*1024),
+                b.maxextend*8192/(1024*1024*1024))) - (SUM(a.bytes)/(1024*1024*1024) -
+                round(c.Free/1024/1024/1024))),2) FREE_GB,
+                round(100*(SUM(a.bytes)/(1024*1024*1024) -
+                round(c.Free/1024/1024/1024))/(SUM(decode(b.maxextend, null, A.BYTES/(1024*1024*1024),
+                b.maxextend*8192/(1024*1024*1024))))) USED_PCT
+from
+                dba_data_files a,
+                sys.filext$ b,
+                (SELECT
+                               d.tablespace_name ,sum(nvl(c.bytes,0)) Free
+                FROM
+                               dba_tablespaces d,
+                               DBA_FREE_SPACE c
+                WHERE
+                               d.tablespace_name = c.tablespace_name(+)
+                               group by d.tablespace_name) c
+WHERE
+                a.file_id = b.file#(+)
+                and a.tablespace_name = c.tablespace_name
+and a.tablespace_name='&tablespace_name'
+GROUP BY a.tablespace_name, c.Free/1024
+ORDER BY tablespace_name;
+
+
+
+
+
+[oracle@eissiprdbadm05 scripts]$ cat lob_size.sql
+
+set lines 300 pages 300
+col TABLE_OWNER for  a30
+col TABLE_NAME for a30
+col PARTITION_NAME for a30
+WITH
+owner_
+AS
+(SELECT 'IIBARCH' owner ---<--- put the tables' owner
+FROM dual
+)
+SELECT ps.table_owner
+      ,ps.table_name
+      ,ps.partition_name
+      ,ps.part_size_mb
+      ,pls.part_lob_size_mb
+      ,(ps.part_size_mb+pls.part_lob_size_mb) all_part_size_mb
+FROM
+(SELECT tp.table_owner
+      ,tp.table_name
+      ,tp.partition_name
+      ,(sg.bytes)/(1024*1024) part_size_mb
+FROM dba_tab_partitions tp
+    ,dba_segments      sg
+    ,owner_ o
+WHERE tp.table_owner    = o.owner
+  AND sg.owner          = tp.table_owner
+  AND sg.segment_name  = tp.table_name
+  AND sg.partition_name = tp.partition_name
+) ps
+,
+(SELECT tp.table_owner
+      ,tp.table_name
+      ,tp.partition_name
+      ,SUM(sg.bytes)/(1024*1024) part_lob_size_mb
+FROM dba_tab_partitions tp
+    ,dba_lob_partitions lp
+    ,dba_segments      sg
+    ,owner_            ow
+WHERE tp.table_owner    = ow.owner
+  AND lp.table_owner    = tp.table_owner
+  AND lp.table_name    = tp.table_name
+  AND lp.partition_name = tp.partition_name
+  AND sg.owner          = lp.table_owner
+  AND sg.segment_name  = lp.lob_name
+  AND sg.partition_name = lp.lob_partition_name
+GROUP BY tp.table_owner
+        ,tp.table_name
+        ,tp.partition_name
+) pls
+WHERE pls.table_owner    = ps.table_owner
+  AND pls.table_name    = ps.table_name
+  AND pls.partition_name = ps.partition_name
+;
+
+
+
+##############################################
+
+SELECT distinct owner, table_name, total_table_meg, SYSDATE FROM (
+  SELECT
+    owner, object_name, object_type, table_name, ROUND(bytes)/1024/1024/1024 AS meg,
+    tablespace_name, extents, initial_extent,
+    ROUND(Sum(bytes/1024/1024/1024) OVER (PARTITION BY table_name)) AS total_table_meg
+  FROM (
+    -- Tables
+    SELECT owner, segment_name AS object_name, 'TABLE' AS object_type,
+          segment_name AS table_name, bytes,
+          tablespace_name, extents, initial_extent
+    FROM   dba_segments
+    WHERE  segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
+    UNION ALL
+    -- Indexes
+    SELECT i.owner, i.index_name AS object_name, 'INDEX' AS object_type,
+          i.table_name, s.bytes,
+          s.tablespace_name, s.extents, s.initial_extent
+    FROM   dba_indexes i, dba_segments s
+    WHERE  s.segment_name = i.index_name
+    AND    s.owner = i.owner
+    AND    s.segment_type IN ('INDEX', 'INDEX PARTITION', 'INDEX SUBPARTITION','LOBINDEX')
+    -- LOB Segments
+    UNION ALL
+    SELECT l.owner, l.column_name AS object_name, 'LOB_COLUMN' AS object_type,
+          l.table_name, s.bytes,
+          s.tablespace_name, s.extents, s.initial_extent
+    FROM   dba_lobs l, dba_segments s
+    WHERE  s.segment_name = l.segment_name
+    AND    s.owner = l.owner
+    AND    s.segment_type in('LOBSEGMENT','LOB PARTITION')
+    -- LOB Indexes
+    UNION ALL
+    SELECT l.owner, l.column_name AS object_name, 'LOB_INDEX' AS object_type,
+          l.table_name, s.bytes,
+          s.tablespace_name, s.extents, s.initial_extent
+    FROM   dba_lobs l, dba_segments s
+    WHERE  s.segment_name = l.index_name
+    AND    s.owner = l.owner
+    AND    s.segment_type = 'LOBINDEX'
+  )
+  WHERE owner = 'IIBARCH'
+ )
+ /
+
+#######################
+
+set long 20000 longchunksize 20000 pagesize 0 linesize 1000 feedback off verify off trimspool on
+column ddl format a1000
+
+begin
+   dbms_metadata.set_transform_param (dbms_metadata.session_transform, 'SQLTERMINATOR', true);
+   dbms_metadata.set_transform_param (dbms_metadata.session_transform, 'PRETTY', true);
+end;
+/
+ 
+variable v_username VARCHAR2(30);
+
+exec :v_username := upper('UATMM');
+
+select dbms_metadata.get_ddl('USER', u.username) AS ddl
+from   dba_users u
+where  u.username = :v_username
+union all
+select dbms_metadata.get_granted_ddl('TABLESPACE_QUOTA', tq.username) AS ddl
+from   dba_ts_quotas tq
+where  tq.username = :v_username
+and    rownum = 1
+union all
+select dbms_metadata.get_granted_ddl('ROLE_GRANT', rp.grantee) AS ddl
+from   dba_role_privs rp
+where  rp.grantee = :v_username
+and    rownum = 1
+union all
+select dbms_metadata.get_granted_ddl('SYSTEM_GRANT', sp.grantee) AS ddl
+from   dba_sys_privs sp
+where  sp.grantee = :v_username
+and    rownum = 1
+union all
+select dbms_metadata.get_granted_ddl('OBJECT_GRANT', tp.grantee) AS ddl
+from   dba_tab_privs tp
+where  tp.grantee = :v_username
+and    rownum = 1
+union all
+select dbms_metadata.get_granted_ddl('DEFAULT_ROLE', rp.grantee) AS ddl
+from   dba_role_privs rp
+where  rp.grantee = :v_username
+and    rp.default_role = 'YES'
+and    rownum = 1
+union all
+select to_clob('/* Start profile creation script in case they are missing') AS ddl
+from   dba_users u
+where  u.username = :v_username
+and    u.profile <> 'DEFAULT'
+and    rownum = 1
+union all
+select dbms_metadata.get_ddl('PROFILE', u.profile) AS ddl
+from   dba_users u
+where  u.username = :v_username
+and    u.profile <> 'DEFAULT'
+union all
+select to_clob('End profile creation script */') AS ddl
+from   dba_users u
+where  u.username = :v_username
+and    u.profile <> 'DEFAULT'
+and    rownum = 1
+/
