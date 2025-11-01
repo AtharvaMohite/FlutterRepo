@@ -1,0 +1,115 @@
+[root@eissiprdbadm01 ~]# crontab -l
+*/1 * * * * setfacl -Rm u:splunk:rX,d:u:splunk:rX /var/log
+10 * * * * setfacl –Rm u:splunk:rX,d:u:splunk:rX /var/log
+10 * * * * setfacl –Rm u:splunk:rX,d:u:splunk:rX /var/log/audit
+
+
+#################  NEW DAILY REPORT  ##########################
+59 23 * * * su - oracle /home/oracle/scripts/daily.sh
+
+#############KILL INACTIVE SESSIONS EVERY 20 MIN ################
+*/10 * * * * su - oracle /home/oracle/scripts/kill_20min_inactive_sess.sh
+
+####################PASSBOOK_QUERY############################
+0 1 * * * su - oracle /home/oracle/scripts/passbook_test.sh
+
+############ URN_DETAILS__DASHBOARD_INSERT EVERYDAY at 01:30 AM ####################
+30 01 * * * su - oracle /home/oracle/scripts/URN_DETAILS_DASHBOARD_INSERT.sh
+
+############ STATS GATHERING FOR TABLES ON EVERY DAY AT 2 AM ####################
+00 02 * * * su - oracle /home/oracle/scripts/tablepart_stats_gather_logs/gather_tablepart_stats.sh
+
+############ STATS GATHERING OF EISAPP SCHEMA ON WEEKLY BASIS AT SUN 1 AM ####################
+00 01 * * 7 su - oracle /home/oracle/scripts/gather_schema_stats.sh
+
+
+############ DICTIONARY STATS GATHER ON IIB MONTHLY BASIS AT 3 AM  ####################################
+00 03 10 * * su - oracle /home/oracle/scripts/dictionary_stats_gather.sh
+#########################################################################
+0 5 * * * /usr/sbin/aide --check
+@daily  sh /root/scripts/audit_archive.sh
+#26 11 * * * /root/scripts/audit_archive.sh
+[root@eissiprdbadm01 ~]#
+[root@eissiprdbadm01 ~]#
+[root@eissiprdbadm01 ~]# cat /home/oracle/scripts/tablepart_stats_gather_logs/gather_tablepart_stats.sh
+
+export ORACLE_SID=MIBPRCDB1
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
+export PATH=$ORACLE_HOME/bin:$PATH
+export ORACLE_PDB_SID=MIIBDRDB
+
+sqlplus -S " / as sysdba" @/home/oracle/scripts/tablepart_stats_gather_logs/partition_table_stats_gather.sql
+
+
+[root@eissiprdbadm01 ~]#
+[root@eissiprdbadm01 ~]# cat /home/oracle/scripts/tablepart_stats_gather_logs/partition_table_stats_gather.sql
+
+set feedback off;
+set heading off;
+set lines 300 pages 900
+spool /home/oracle/scripts/tablepart_stats_gather_logs/partition_table_stats_gather_exec.sql
+select 'spool /home/oracle/scripts/tablepart_stats_gather_logs/partition_table_stats_gather_'||sysdate||'.log' from dual;
+select 'set serveroutput on;' from dual;
+select 'set echo on;' from dual;
+select 'set timi on;' from dual;
+select 'set time on;' from dual;
+select 'EXEC dbms_stats.gather_table_stats(OWNNAME=>''EISAPP'',TABNAME=>'''||TABLE_NAME||''',PARTNAME=>'''||PARTITION_NAME||''', DEGREE=> 24, CASCADE=> TRUE);' from dba_tab_statistics where TABLE_NAME IN (
+'URN_DETAILS',
+'URN_DETAILS_ACCOUNTS',
+'URN_DETAILS_CUSTOMERS',
+'URN_DETAILS_PAYMENTS',
+'URN_DETAILS_MISC',
+'BACKEND_DETAILS',
+'BACKEND_DETAILS_CLOB',
+'BACKEND_LOG',
+'ORCH_API_DETAILS',
+'API_PROCESSING_LOG',
+'BACKEND_PROCESSING_LOG',
+'API_URN_DETAILS',
+'API_DETAILS_CLOB',
+'API_PROCESSING_CLOBDETAIL',
+'BACKEND_PROCESSING_CLOBDETAILS',
+'API_PROCESSING_CLOBDETAILS',
+'ORCH_API_DETAILS_CLOB',
+'BACKEND_PROCESSING_DETAILS',
+'API_PROCESSING_DETAILS',
+'API_DETAILS',
+'ORCH_API_LOG',
+'API_PROCESSING_LOG_TEMP',
+'API_LOG') and stale_stats='YES' and PARTITION_NAME IS NOT NULL;
+select 'spool off;' from dual;
+spool off;
+@/home/oracle/scripts/tablepart_stats_gather_logs/partition_table_stats_gather_exec.sql
+exit;
+
+========================
+
+
+
+[root@eissiprdbadm01 ~]# cat /home/oracle/scripts/gather_schema_stats.sh
+
+. ~/.bash_profile
+
+date
+today=`date +"%d-%m-%Y"`
+
+export ORACLE_SID=MIBPRCDB1
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0.0/dbhome_1
+export PATH=$ORACLE_HOME/bin:$PATH
+export ORACLE_PDB_SID=MIIBDRDB
+
+sqlplus " / as sysdba" <<EOF
+set echo on;
+set time on timing on;
+spool /home/oracle/scripts/stats_gather_logs/$today-stats_gather.log;
+@/home/oracle/scripts/schema_stats.sql
+spool off
+EOF
+
+[root@eissiprdbadm01 ~]# cat /home/oracle/scripts/schema_stats.sql
+
+select 'IIBPRDB',to_char(sysdate,'yyyy-mm-dd:hh24:mi:ss') from dual;
+EXECUTE DBMS_STATS.GATHER_SCHEMA_STATS(OWNNAME=>'EISAPP', ESTIMATE_PERCENT=> DBMS_STATS.AUTO_SAMPLE_SIZE, METHOD_OPT=> 'FOR ALL COLUMNS SIZE AUTO',DEGREE=>8, CASCADE=>TRUE);
+
+
+==================================
