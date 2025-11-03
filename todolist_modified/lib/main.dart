@@ -80,3 +80,37 @@ SELECT
 FROM dba_tables
 WHERE owner = 'YOUR_SCHEMA_NAME'
 ORDER BY table_name;
+
+
+
+
+SET SERVEROUTPUT ON
+DECLARE
+    v_sql        VARCHAR2(1000);
+    v_last_date  DATE;
+    v_table_name VARCHAR2(100);
+BEGIN
+    FOR t IN (
+        SELECT table_name
+        FROM user_tables
+        WHERE table_name NOT LIKE 'BIN$%'  -- exclude dropped tables
+    )
+    LOOP
+        BEGIN
+            v_sql := 'SELECT MAX(creation_date_time) FROM ' || t.table_name;
+            EXECUTE IMMEDIATE v_sql INTO v_last_date;
+            
+            IF v_last_date IS NOT NULL THEN
+                DBMS_OUTPUT.PUT_LINE(
+                    t.table_name || ' -> Last Insert Year: ' || TO_CHAR(v_last_date, 'YYYY')
+                );
+            ELSE
+                DBMS_OUTPUT.PUT_LINE(t.table_name || ' -> No Data / creation_date_time is NULL');
+            END IF;
+        EXCEPTION
+            WHEN OTHERS THEN
+                DBMS_OUTPUT.PUT_LINE(t.table_name || ' -> creation_date_time column missing');
+        END;
+    END LOOP;
+END;
+/
