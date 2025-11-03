@@ -69,3 +69,14 @@ BEGIN
 END;
 /
 
+
+
+
+
+SELECT 
+    'SELECT ''' || table_name || ''' AS TABLE_NAME, ' ||
+    'TO_CHAR(MAX(creation_date_time), ''YYYY'') AS DATA_YEAR ' ||
+    'FROM ' || owner || '.' || table_name || ' UNION ALL'
+FROM dba_tables
+WHERE owner = 'YOUR_SCHEMA_NAME'
+ORDER BY table_name;
